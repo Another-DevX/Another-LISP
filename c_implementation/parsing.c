@@ -5,24 +5,19 @@ static char input[2048];
 
 int main(int argc, char **argv) {
 
-  mpc_parser_t *Adjective = mpc_new("adjective");
-  mpc_parser_t *Noun = mpc_new("noun");
-  mpc_parser_t *Phrase = mpc_new("phrase");
-  mpc_parser_t *Doge = mpc_new("doge");
+  mpc_parser_t *Number = mpc_new("number");
+  mpc_parser_t *Operator = mpc_new("operator");
+  mpc_parser_t *Expression = mpc_new("expression");
+  mpc_parser_t *Anotlisp = mpc_new("anotlisp");
 
   mpca_lang(MPCA_LANG_DEFAULT, "                                           \
-    adjective : \"wow\" | \"many\"            \
-              |  \"so\" | \"such\";           \
-    noun      : \"lisp\" | \"language\"       \
-              | \"book\" | \"build\" | \"c\"; \
-    phrase    : <adjective> <noun>;           \
-    doge      : <phrase>*;                    \
+    number       : /-?[0-9]+/;                                      \
+    operator     :  '+' | '-' | '*' | '/';                          \
+    expression   :  <number> | '(' <operator> <expression>+ ')';    \
+    anotlisp      : /^/ <operator> <expression>+ /$/ ;              \
   ",
-            Adjective, Noun, Phrase, Doge);
+            Number, Operator, Expression, Anotlisp);
 
-  /* Do some parsing here... */
-
-  mpc_cleanup(4, Adjective, Noun, Phrase, Doge);
   puts("Anotlisp version 0.0.0.1");
   puts("Press Ctrl+c to Exit \n");
 
@@ -31,7 +26,16 @@ int main(int argc, char **argv) {
 
     fgets(input, 2048, stdin);
 
-    printf("No you're a %s", input);
+    mpc_result_t r;
+    if (mpc_parse("<stdin>", input, Anotlisp, &r)) {
+      mpc_ast_print(r.output);
+      mpc_ast_delete(r.output);
+    } else {
+      mpc_err_print(r.error);
+      mpc_err_delete(r.error);
+    }
   }
+
+  mpc_cleanup(4, Number, Operator, Expression, Anotlisp);
   return 0;
 }
