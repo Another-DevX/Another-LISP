@@ -1,0 +1,5 @@
+WHITESPACE = _{ " " | "\t" | "\n" }
+number = { "-"? ~ ASCII_DIGIT+ }
+operator = { "+" | "-" | "*" | "/" }
+expression = { number | "(" ~ operator ~ expression+ ~ ")" }
+anotlisp = { operator ~ expression+ }

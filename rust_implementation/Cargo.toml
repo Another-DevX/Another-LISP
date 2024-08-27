@@ -1,11 +1,8 @@
 [package]
-name = "rust_implementation"
+name = "anotlisp"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-
-
-[[bin]]
-name = "interactive_prompt"
-path = "src/interactive_prompt.rs"
+pest = "2.1"
+pest_derive = "2.1"
