@@ -20,6 +20,13 @@ fn eval_op(x: u128, op: char, y: u128) -> u128 {
             }
             x / y
         }
+        '%' => {
+            if y == 0 {
+                panic!("Division by zero");
+            }
+            x % y
+        }
+
         _ => panic!("Unknown operator"),
     }
 }
