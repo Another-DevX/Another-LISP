@@ -1,3 +1,4 @@
+use core::fmt;
 use pest::{
     iterators::{Pair, Pairs},
     Parser,
@@ -9,34 +10,96 @@ use std::io::{self, Write};
 #[grammar = "anotlisp.pest"]
 struct AnotlispParser;
 
-fn eval_op(x: u128, op: char, y: u128) -> u128 {
-    match op {
-        '+' => x + y,
-        '-' => x - y,
-        '*' => x * y,
-        '/' => {
-            if y == 0 {
-                panic!("Division by zero");
-            }
-            x / y
-        }
-        '%' => {
-            if y == 0 {
-                panic!("Division by zero");
-            }
-            x % y
-        }
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum LvalType {
+    LvalNum,
+    LvalErr,
+}
 
-        _ => panic!("Unknown operator"),
+#[derive(Debug, Clone, Copy)]
+enum LvalErr {
+    DivZero,
+    BadOp,
+    BadNum,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct Lval {
+    lval_type: LvalType,
+    num: Option<i128>,
+    err: Option<LvalErr>,
+}
+
+impl Lval {
+    fn new_num(value: i128) -> Self {
+        Lval {
+            lval_type: LvalType::LvalNum,
+            num: Some(value),
+            err: None,
+        }
+    }
+
+    fn new_err(err: LvalErr) -> Self {
+        Lval {
+            lval_type: LvalType::LvalErr,
+            num: None,
+            err: Some(err),
+        }
     }
 }
 
-fn eval(pairs: &Pairs<Rule>) -> u128 {
+impl fmt::Display for Lval {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.lval_type {
+            LvalType::LvalNum => write!(f, "{}", self.num.unwrap()),
+            LvalType::LvalErr => match self.err.unwrap() {
+                LvalErr::DivZero => write!(f, "Error: Division by zero"),
+                LvalErr::BadOp => write!(f, "Error: Invalid operator"),
+                LvalErr::BadNum => write!(f, "Error: Invalid number"),
+            },
+        }
+    }
+}
+
+fn eval_op(x: Lval, op: char, y: Lval) -> Lval {
+    if x.lval_type == LvalType::LvalErr {
+        return x;
+    }
+    if y.lval_type == LvalType::LvalErr {
+        return y;
+    }
+    match op {
+        '+' => Lval::new_num(x.num.unwrap() + y.num.unwrap()),
+        '-' => Lval::new_num(x.num.unwrap() - y.num.unwrap()),
+        '*' => Lval::new_num(x.num.unwrap() * y.num.unwrap()),
+        '/' => {
+            if y.num.unwrap() == 0 {
+                Lval::new_err(LvalErr::DivZero)
+            } else {
+                Lval::new_num(x.num.unwrap() / y.num.unwrap())
+            }
+        }
+        '%' => {
+            if y.num.unwrap() == 0 {
+                Lval::new_err(LvalErr::DivZero)
+            } else {
+                Lval::new_num(x.num.unwrap() % y.num.unwrap())
+            }
+        }
+        _ => Lval::new_err(LvalErr::BadOp),
+    }
+}
+
+fn eval(pairs: &Pairs<Rule>) -> Lval {
     let mut pairs = pairs.clone();
     let first_pair = pairs.next().unwrap();
 
     if first_pair.as_rule() == Rule::number {
-        return first_pair.as_str().parse().unwrap();
+        let number = first_pair.as_str().parse::<i128>();
+        match number {
+            Ok(num) => return Lval::new_num(num),
+            Err(_) => return Lval::new_err(LvalErr::BadNum),
+        }
     }
 
     let op = &first_pair.as_str().chars().next().unwrap();
