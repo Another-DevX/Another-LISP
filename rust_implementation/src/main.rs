@@ -6,11 +6,6 @@ use pest::{
 use pest_derive::Parser;
 use std::io::{self, Write};
 
-const ANOTLISP_START: &str = "ANOTLISP_START";
-const ANOTLISP_END: &str = "ANOTLISP_END";
-const SEXP_START: &str = "SEXP_START";
-const SEXP_END: &str = "SEXP_END";
-
 #[derive(Parser)]
 #[grammar = "anotlisp.pest"]
 struct AnotlispParser;
@@ -78,11 +73,11 @@ impl Lval {
 
     fn add(&mut self, value: Lval) -> &mut Self {
         self.cell.push(value);
-        return self;
+        self
     }
 
     fn pop(&mut self, index: usize) -> Lval {
-        return self.cell.remove(index);
+        self.cell.remove(index)
     }
 
     fn builtin_op(&mut self, op: &String) -> Lval {
@@ -137,7 +132,7 @@ impl Lval {
     }
     fn eval_sexpr(&mut self) -> Lval {
         for lval in &mut self.cell {
-            lval.eval();
+            *lval = lval.eval();
         }
 
         for lval in &self.cell {
@@ -146,8 +141,11 @@ impl Lval {
             }
         }
 
-        if self.cell.is_empty() || self.cell.len() == 1 {
+        if self.cell.is_empty() {
             return self.clone();
+        }
+        if self.cell.len() == 1 {
+            return self.pop(0);
         }
 
         let f = self.pop(0);
@@ -166,51 +164,23 @@ impl Lval {
             Err(_) => Lval::new_err(String::from("Invalid number!")),
         }
     }
-    fn read(mut pairs: Pairs<Rule>) -> Lval {
+    fn read(pair: Pair<Rule>) -> Lval {
         let mut x;
-        if pairs.clone().next().is_none() {
-            return Lval::new_err(String::from("Empty expression!"));
-        }
-        let first_pair = pairs.next().unwrap();
-        let mut pairs = pairs;
-        println!("{:?}", first_pair);
-        println!("{:?}\n", first_pair.as_rule());
-        match first_pair.as_rule() {
-            Rule::number => return Lval::read_num(first_pair),
-            Rule::symbol => return Lval::new_sym(first_pair.as_str().to_string()),
+        match pair.as_rule() {
+            Rule::number => return Lval::read_num(pair),
+            Rule::symbol => return Lval::new_sym(pair.as_str().to_string()),
+            Rule::anotlisp => x = Lval::new_sexpr(),
             Rule::sexpression => x = Lval::new_sexpr(),
-            Rule::anotlisp => {
-                pairs = first_pair.into_inner();
-                x = Lval::new_sexpr()
-            }
-            _ => return Lval::new_err(String::from("Unknown expression!")),
+
+            _ => return Lval::new_err(String::from("Invalid rule!")),
         };
 
-        // println!("{:?}", pairs);
-        for inner_pair in pairs {
+        for inner_pair in pair.into_inner() {
             match inner_pair.as_rule() {
-                Rule::expression | Rule::anotlisp => {
-                    println!("SEXPRESSION {:?}", inner_pair);
-                    x.add(Lval::read(inner_pair.into_inner()))
-                }
-                Rule::sexpression => {
-                    println!("SEXPRESSION {:?}", inner_pair);
-                    let mut new_sexpr = Lval::new_sexpr();
-                    for inner_pair in inner_pair.into_inner() {
-                        let expr = Lval::read(inner_pair.into_inner());
-                        new_sexpr.add(expr);
-                    }
-                    x.add(new_sexpr)
-                }
-                Rule::symbol => x.add(Lval::new_sym(inner_pair.as_str().to_string())),
-                Rule::number => x.add(Lval::read_num(inner_pair)),
-                _ => {
-                    return Lval::new_err(String::from("Unknown expression!"));
-                }
+                Rule::regex => continue,
+                _ => x.add(Lval::read(inner_pair)),
             };
         }
-
-        println!("{:?}", x);
         x
     }
 }
@@ -245,11 +215,12 @@ fn main() -> io::Result<()> {
         io::stdout().flush()?;
         io::stdin().read_line(&mut buffer)?;
 
-        let parse_result = AnotlispParser::parse(Rule::anotlisp, &buffer);
+        let formated = &format!("{} {} {}", "regex", &buffer, "regex");
+        let parse_result = AnotlispParser::parse(Rule::anotlisp, formated);
 
         match parse_result {
             Ok(parsed) => {
-                let mut parsed = Lval::read(parsed.clone());
+                let mut parsed = Lval::read(parsed.clone().next().unwrap());
                 let result = parsed.eval();
 
                 println!("Result: {}", result);

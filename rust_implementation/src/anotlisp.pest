@@ -4,4 +4,5 @@ number = @{ "-"? ~ ASCII_DIGIT+ }
 symbol = { "+" | "-" | "*" | "/" | "%" }
 sexpression  = { "(" ~ expression* ~ ")" }
 expression   = _{ number | symbol | sexpression }
-anotlisp = {   expression+  }
+regex = { "regex" }
+anotlisp = {  #regex=regex ~ expression+ ~ #regex=regex   }
