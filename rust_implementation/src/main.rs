@@ -6,6 +6,11 @@ use pest::{
 use pest_derive::Parser;
 use std::io::{self, Write};
 
+const ANOTLISP_START: &str = "ANOTLISP_START";
+const ANOTLISP_END: &str = "ANOTLISP_END";
+const SEXP_START: &str = "SEXP_START";
+const SEXP_END: &str = "SEXP_END";
+
 #[derive(Parser)]
 #[grammar = "anotlisp.pest"]
 struct AnotlispParser;
@@ -98,7 +103,7 @@ impl Lval {
 
         while !self.cell.is_empty() {
             let y = self.pop(0);
-            if let (Some(ref mut x_num), Some(y_num)) = (x.num, y.num) {
+            if let (Some(x_num), Some(y_num)) = (x.num.as_mut(), y.num) {
                 match op.as_str() {
                     "+" => *x_num += y_num,
                     "-" => *x_num -= y_num,
@@ -116,7 +121,7 @@ impl Lval {
                         *x_num %= y_num;
                     }
                     _ => return Lval::new_err("Invalid operator!".to_string()),
-                }
+                };
             } else {
                 return Lval::new_err("Invalid number!".to_string());
             }
@@ -167,22 +172,45 @@ impl Lval {
             return Lval::new_err(String::from("Empty expression!"));
         }
         let first_pair = pairs.next().unwrap();
+        let mut pairs = pairs;
+        println!("{:?}", first_pair);
+        println!("{:?}\n", first_pair.as_rule());
         match first_pair.as_rule() {
             Rule::number => return Lval::read_num(first_pair),
             Rule::symbol => return Lval::new_sym(first_pair.as_str().to_string()),
             Rule::sexpression => x = Lval::new_sexpr(),
+            Rule::anotlisp => {
+                pairs = first_pair.into_inner();
+                x = Lval::new_sexpr()
+            }
             _ => return Lval::new_err(String::from("Unknown expression!")),
         };
 
+        // println!("{:?}", pairs);
         for inner_pair in pairs {
             match inner_pair.as_rule() {
-                Rule::sexpression | Rule::expression => x.add(Lval::read(inner_pair.into_inner())),
+                Rule::expression | Rule::anotlisp => {
+                    println!("SEXPRESSION {:?}", inner_pair);
+                    x.add(Lval::read(inner_pair.into_inner()))
+                }
+                Rule::sexpression => {
+                    println!("SEXPRESSION {:?}", inner_pair);
+                    let mut new_sexpr = Lval::new_sexpr();
+                    for inner_pair in inner_pair.into_inner() {
+                        let expr = Lval::read(inner_pair.into_inner());
+                        new_sexpr.add(expr);
+                    }
+                    x.add(new_sexpr)
+                }
                 Rule::symbol => x.add(Lval::new_sym(inner_pair.as_str().to_string())),
                 Rule::number => x.add(Lval::read_num(inner_pair)),
-                _ => continue,
+                _ => {
+                    return Lval::new_err(String::from("Unknown expression!"));
+                }
             };
         }
 
+        println!("{:?}", x);
         x
     }
 }
@@ -203,6 +231,35 @@ impl fmt::Display for Lval {
             }
             LvalType::LvalErr => write!(f, "Error: {}", self.err.as_ref().unwrap()),
         }
+    }
+}
+
+fn main() -> io::Result<()> {
+    let mut buffer = String::new();
+
+    println!("Anotlisp version 0.0.0.1");
+    println!("Press Ctrl+C to Exit \n");
+
+    loop {
+        print!("Anotlisp> ");
+        io::stdout().flush()?;
+        io::stdin().read_line(&mut buffer)?;
+
+        let parse_result = AnotlispParser::parse(Rule::anotlisp, &buffer);
+
+        match parse_result {
+            Ok(parsed) => {
+                let mut parsed = Lval::read(parsed.clone());
+                let result = parsed.eval();
+
+                println!("Result: {}", result);
+            }
+            Err(e) => {
+                println!("error: {}", e);
+            }
+        }
+
+        buffer.clear();
     }
 }
 
@@ -258,32 +315,3 @@ impl fmt::Display for Lval {
 //     }
 //     return x;
 // }
-
-fn main() -> io::Result<()> {
-    let mut buffer = String::new();
-
-    println!("Anotlisp version 0.0.0.1");
-    println!("Press Ctrl+C to Exit \n");
-
-    loop {
-        print!("Anotlisp> ");
-        io::stdout().flush()?;
-        io::stdin().read_line(&mut buffer)?;
-
-        let parse_result = AnotlispParser::parse(Rule::anotlisp, &buffer);
-
-        match parse_result {
-            Ok(parsed) => {
-                let result =
-                    Lval::eval(&mut Lval::read(parsed.clone().next().unwrap().into_inner()));
-
-                println!("Result: {}", result);
-            }
-            Err(e) => {
-                println!("error: {}", e);
-            }
-        }
-
-        buffer.clear();
-    }
-}

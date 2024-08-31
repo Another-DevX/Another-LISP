@@ -4,5 +4,4 @@ number = @{ "-"? ~ ASCII_DIGIT+ }
 symbol = { "+" | "-" | "*" | "/" | "%" }
 sexpression  = { "(" ~ expression* ~ ")" }
 expression   = _{ number | symbol | sexpression }
-anotlisp = { expression* }
-
+anotlisp = {   expression+  }
