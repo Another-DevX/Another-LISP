@@ -308,6 +308,7 @@ int main(int argc, char **argv) {
 
     mpc_result_t r;
     if (mpc_parse("<stdin>", input, Anotlisp, &r)) {
+      mpc_ast_print(r.output);
       lval *result = lval_eval(lval_read(r.output));
       lval_println(result);
       lval_del(result);
