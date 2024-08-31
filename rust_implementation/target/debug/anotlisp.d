@@ -1,0 +1,1 @@
+/home/anotherdev/workspace/something/lisp/rust_implementation/target/debug/anotlisp: /home/anotherdev/workspace/something/lisp/rust_implementation/src/anotlisp.pest /home/anotherdev/workspace/something/lisp/rust_implementation/src/main.rs
