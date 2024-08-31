@@ -1,5 +1,8 @@
+
 WHITESPACE = _{ " " | "\t" | "\n" }
 number = @{ "-"? ~ ASCII_DIGIT+ }
-operator = { "+" | "-" | "*" | "/" | "%" }
-expression = { "(" ~ operator ~ expression+ ~ ")" | number }
-anotlisp = { operator ~ expression+ }
+symbol = { "+" | "-" | "*" | "/" | "%" }
+sexpression  = { "(" ~ expression* ~ ")" }
+expression   = _{ number | symbol | sexpression }
+anotlisp = { expression* }
+
