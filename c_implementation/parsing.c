@@ -1,6 +1,12 @@
 #include "mpc.h"
 #include <stdio.h>
 
+#define LASSERT(args, cond, err)                                               \
+  if (!(cond)) {                                                               \
+    lval_del(args);                                                            \
+    return lval_err(err);                                                      \
+  }
+
 static char input[2048];
 
 typedef struct lval {
@@ -140,6 +146,30 @@ void lval_print(lval *v) {
 void lval_println(lval *v) {
   lval_print(v);
   putchar('\n');
+}
+
+lval *builtin_head(lval *a) {
+  LASSERT(a, a->count == 1, "Function 'head' passed too many arguments!");
+  LASSERT(a, a->cell[0]->type == LVAL_QEXPR,
+          "Function 'head' passed incorrect type!");
+  LASSERT(a, a->cell[0]->count != 0, "Function 'head' passed {}!");
+
+  lval *v = lval_take(a, 0);
+  while (v->count > 1) {
+    lval_del(lval_pop(v, 1));
+  }
+  return v;
+}
+
+lval *builtin_tail(lval *a) {
+  LASSERT(a, a->count == 1, "Function 'tail' passed too many arguments!");
+  LASSERT(a, a->cell[0]->type == LVAL_QEXPR,
+          "Function 'tail' passed incorrect type!");
+  LASSERT(a, a->cell[0]->count != 0, "Function 'tail' passed {}!");
+
+  lval *v = lval_take(a, 0);
+  lval_del(lval_pop(v, 0));
+  return v;
 }
 
 lval *builtin_op(lval *a, char *op) {
@@ -315,13 +345,14 @@ int main(int argc, char **argv) {
   mpc_parser_t *Expr = mpc_new("expr");
   mpc_parser_t *Anotlisp = mpc_new("anotlisp");
 
-  mpca_lang(MPCA_LANG_DEFAULT, "                                          \
-    number : /-?[0-9]+/ ;                              \
-    symbol : '+' | '-' | '*' | '/' ;                   \
-    sexpr  : '(' <expr>* ')' ;                         \
-    qexpr  : '{' <expr>* '}' ;                         \
-    expr   : <number> | <symbol> | <sexpr> | <qexpr> ; \
-    anotlisp  : /^/ <expr>* /$/ ;                         \
+  mpca_lang(MPCA_LANG_DEFAULT, "                           \
+    number : /-?[0-9]+/ ;                                  \
+    symbol : \"list\" | \"head\" | \"tail\"                \
+           | \"join\" | \"eval\" | '+' | '-' | '*' | '/' ; \
+    sexpr  : '(' <expr>* ')' ;                             \
+    qexpr  : '{' <expr>* '}' ;                             \
+    expr   : <number> | <symbol> | <sexpr> | <qexpr> ;     \
+    anotlisp  : /^/ <expr>* /$/ ;                          \
   ",
             Number, Symbol, Sexpr, Qexpr, Expr, Anotlisp);
 
