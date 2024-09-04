@@ -1,6 +1,31 @@
 #include "mpc.h"
 #include <stdio.h>
 
+/* If we are compiling on Windows compile these functions */
+#ifdef _WIN32
+#include <string.h>
+
+static char buffer[2048];
+
+/* Fake readline function */
+char *readline(char *prompt) {
+  fputs(prompt, stdout);
+  fgets(buffer, 2048, stdin);
+  char *cpy = malloc(strlen(buffer) + 1);
+  strcpy(cpy, buffer);
+  cpy[strlen(cpy) - 1] = '\0';
+  return cpy;
+}
+
+/* Fake add_history function */
+void add_history(char *unused) {}
+
+/* Otherwise include the editline headers */
+#else
+#include <editline/history.h>
+#include <editline/readline.h>
+#endif
+
 struct lval;
 struct lenv;
 typedef struct lval lval;
@@ -500,7 +525,6 @@ lval *lval_read(mpc_ast_t *t) {
   return x;
 }
 
-static char input[2048];
 int main(int argc, char **argv) {
 
   mpc_parser_t *Number = mpc_new("number");
@@ -527,9 +551,8 @@ int main(int argc, char **argv) {
   lenv_add_builtins(e);
 
   while (1) {
-    fputs("Anotlisp> ", stdout);
-
-    fgets(input, 2048, stdin);
+    char *input = readline("Anotlisp> ");
+    add_history(input);
 
     mpc_result_t r;
     if (mpc_parse("<stdin>", input, Anotlisp, &r)) {
@@ -542,6 +565,8 @@ int main(int argc, char **argv) {
       mpc_err_print(r.error);
       mpc_err_delete(r.error);
     }
+
+    free(input);
   }
   lenv_del(e);
   mpc_cleanup(6, Number, Symbol, Sexpr, Qexpr, Expr, Anotlisp);
