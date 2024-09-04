@@ -1,10 +1,9 @@
 use core::fmt;
-use pest::{
-    iterators::{Pair, Pairs},
-    Parser,
-};
+use pest::{iterators::Pair, Parser};
 use pest_derive::Parser;
-use std::io::{self, Write};
+use rustyline::error::ReadlineError;
+use rustyline::Editor;
+use std::error::Error;
 
 #[derive(Parser)]
 #[grammar = "anotlisp.pest"]
@@ -204,85 +203,47 @@ impl fmt::Display for Lval {
     }
 }
 
-fn main() -> io::Result<()> {
-    let mut buffer = String::new();
-
+fn main() -> Result<(), Box<dyn Error>> {
     println!("Anotlisp version 0.0.0.1");
     println!("Press Ctrl+C to Exit \n");
 
+    let mut rl = Editor::<()>::new()?;
+
     loop {
-        print!("Anotlisp> ");
-        io::stdout().flush()?;
-        io::stdin().read_line(&mut buffer)?;
+        let readline = rl.readline("Anotlisp> ");
 
-        let formated = &format!("{} {} {}", "regex", &buffer, "regex");
-        let parse_result = AnotlispParser::parse(Rule::anotlisp, formated);
+        match readline {
+            Ok(buffer) => {
+                rl.add_history_entry(buffer.as_str());
 
-        match parse_result {
-            Ok(parsed) => {
-                let mut parsed = Lval::read(parsed.clone().next().unwrap());
-                let result = parsed.eval();
+                let formated = &format!("{} {} {}", "regex", &buffer, "regex");
+                let parse_result = AnotlispParser::parse(Rule::anotlisp, formated);
 
-                println!("Result: {}", result);
+                match parse_result {
+                    Ok(parsed) => {
+                        let mut parsed = Lval::read(parsed.clone().next().unwrap());
+                        let result = parsed.eval();
+
+                        println!("Result: {}", result);
+                    }
+                    Err(e) => {
+                        println!("error: {}", e);
+                    }
+                }
             }
-            Err(e) => {
-                println!("error: {}", e);
+            Err(ReadlineError::Interrupted) => {
+                println!("CTRL-C detected. Exiting...");
+                break;
+            }
+            Err(ReadlineError::Eof) => {
+                println!("CTRL-D detected. Exiting...");
+                break;
+            }
+            Err(err) => {
+                println!("Error: {:?}", err);
+                break;
             }
         }
-
-        buffer.clear();
     }
+    Ok(())
 }
-
-// fn eval_op(x: Lval, op: char, y: Lval) -> Lval {
-//     if x.lval_type == LvalType::LvalErr {
-//         return x;
-//     }
-//     if y.lval_type == LvalType::LvalErr {
-//         return y;
-//     }
-//     match op {
-//         '+' => Lval::new_num(x.num.unwrap() + y.num.unwrap()),
-//         '-' => Lval::new_num(x.num.unwrap() - y.num.unwrap()),
-//         '*' => Lval::new_num(x.num.unwrap() * y.num.unwrap()),
-//         '/' => {
-//             if y.num.unwrap() == 0 {
-//                 Lval::new_err(LvalErr::DivZero)
-//             } else {
-//                 Lval::new_num(x.num.unwrap() / y.num.unwrap())
-//             }
-//         }
-//         '%' => {
-//             if y.num.unwrap() == 0 {
-//                 Lval::new_err(LvalErr::DivZero)
-//             } else {
-//                 Lval::new_num(x.num.unwrap() % y.num.unwrap())
-//             }
-//         }
-//         _ => Lval::new_err(LvalErr::BadOp),
-//     }
-// }
-
-// fn eval(pairs: &Pairs<Rule>) -> Lval {
-//     let mut pairs = pairs.clone();
-//     let first_pair = pairs.next().unwrap();
-//
-//     if first_pair.as_rule() == Rule::number {
-//         let number = first_pair.as_str().parse::<i128>();
-//         match number {
-//             Ok(num) => return Lval::new_num(num),
-//             Err(_) => return Lval::new_err(LvalErr::BadNum),
-//         }
-//     }
-//
-//     let op = &first_pair.as_str().chars().next().unwrap();
-//     let mut x = eval(&pairs.next().unwrap().into_inner());
-//     while let Some(next_pair) = pairs.next() {
-//         if next_pair.as_rule() == Rule::expression {
-//             x = eval_op(x, *op, eval(&next_pair.into_inner()));
-//         } else {
-//             break;
-//         }
-//     }
-//     return x;
-// }

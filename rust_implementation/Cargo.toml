@@ -6,3 +6,4 @@ edition = "2021"
 [dependencies]
 pest_derive = { version = "2.1", features = ["grammar-extras"] }
 pest = "2.1"
+rustyline = "10.1.0"
